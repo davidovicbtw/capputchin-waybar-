@@ -1,0 +1,18 @@
+/* capputchin-waybar colors · Catppuccin Mocha (default)
+ * If matugen is set up, this file is regenerated from your wallpaper.
+ * Delete it and re-run install.sh (or copy it from the repo) to go back to Mocha. */
+
+@define-color crust    #11111b;
+@define-color mantle   #181825;
+@define-color base     #1e1e2e;
+@define-color surface0 #313244;
+@define-color surface1 #45475a;
+@define-color overlay0 #6c7086;
+@define-color subtext0 #a6adc8;
+@define-color text     #cdd6f4;
+@define-color mauve    #cba6f7;
+@define-color blue     #89b4fa;
+@define-color green    #a6e3a1;
+@define-color yellow   #f9e2af;
+@define-color peach    #fab387;
+@define-color red      #f38ba8;

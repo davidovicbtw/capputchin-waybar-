@@ -1,0 +1,121 @@
+{
+  // Catppuccin Mocha · minimal Waybar for Hyprland
+  // Tuned for 1920x1200 @ 1.5x (≈1280x800 logical)
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "spacing": 0,
+  "reload_style_on_change": true,
+
+  "modules-left": ["custom/arch", "hyprland/workspaces"],
+  "modules-center": ["clock"],
+  "modules-right": ["mpris", "group/status", "group/system", "tray"],
+
+  "custom/arch": {
+    "format": "",
+    "tooltip": false
+  },
+
+  "hyprland/workspaces": {
+    "format": "{name}",
+    "sort-by-number": true,
+    "show-special": false,
+    "persistent-workspaces": { "*": 5 }
+  },
+
+  "clock": {
+    "format": "󰥔 {:%H:%M  󰃭 %d %b}",
+    "tooltip-format": "<tt><small>{calendar}</small></tt>",
+    "on-click": "gnome-calendar",
+    "calendar": {
+      "mode": "month",
+      "on-scroll": 1,
+      "format": {
+        "months": "<b>{}</b>",
+        "weekdays": "<span alpha='55%'>{}</span>",
+        "today": "<b><u>{}</u></b>"
+      }
+    },
+    "actions": {
+      "on-scroll-up": "shift_up",
+      "on-scroll-down": "shift_down"
+    }
+  },
+
+  "mpris": {
+    "format": "{status_icon} {title}",
+    "format-stopped": "",
+    "title-len": 22,
+    "status-icons": { "playing": "󰏤", "paused": "󰐊", "stopped": "󰓛" },
+    "tooltip-format": "{player}: {artist} - {title}\nclick: play/pause · middle: prev · right: next"
+  },
+
+  "group/status": {
+    "orientation": "horizontal",
+    "modules": ["pulseaudio", "network", "bluetooth", "battery"]
+  },
+
+  "pulseaudio": {
+    "format": "{icon} {volume}%",
+    "format-muted": "󰝟 muted",
+    "format-icons": { "headphone": "󰋋", "default": ["󰕿", "󰖀", "󰕾"] },
+    "scroll-step": 5,
+    "on-click": "pavucontrol",
+    "on-click-middle": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "tooltip-format": "{desc} · {volume}%"
+  },
+
+  "network": {
+    "format-wifi": "{icon}",
+    "format-ethernet": "󰈀",
+    "format-linked": "󰤮",
+    "format-disconnected": "󰤮",
+    "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+    "on-click": "nm-connection-editor",
+    "tooltip-format-wifi": "{essid} · {signalStrength}%\n{ipaddr}",
+    "tooltip-format-ethernet": "{ifname} · {ipaddr}",
+    "tooltip-format-disconnected": "Disconnected"
+  },
+
+  "bluetooth": {
+    "format": "󰂯",
+    "format-connected": "󰂱 {num_connections}",
+    "format-off": "󰂲",
+    "format-disabled": "",
+    "format-no-controller": "",
+    "on-click": "blueman-manager",
+    "tooltip-format": "{controller_alias} · {status}",
+    "tooltip-format-connected": "{device_enumerate}",
+    "tooltip-format-enumerate-connected": "{device_alias}"
+  },
+
+  "battery": {
+    "states": { "warning": 25, "critical": 10 },
+    "format": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
+    "format-plugged": "󰚥 {capacity}%",
+    "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+    "tooltip-format": "{timeTo} · {power:.1f} W"
+  },
+
+  "group/system": {
+    "orientation": "horizontal",
+    "modules": ["cpu", "memory"]
+  },
+
+  "cpu": {
+    "format": " {usage}%",
+    "interval": 5
+  },
+
+  "memory": {
+    "format": "󰍛 {percentage}%",
+    "interval": 10,
+    "tooltip-format": "{used:0.1f} / {total:0.1f} GiB"
+  },
+
+  "tray": {
+    "icon-size": 15,
+    "spacing": 8
+  }
+}
