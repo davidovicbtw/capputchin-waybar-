@@ -4,11 +4,13 @@
 # Safe by design:
 #   - never uses sudo, never installs packages, never deletes files
 #   - backs up ~/.config/waybar before writing anything
-#   - only touches ~/.config/waybar/{config.jsonc,style.css} (and renames a
-#     conflicting legacy "config" file, which is also in the backup)
+#   - only touches ~/.config/waybar/{config.jsonc,style.css,colors.css} (and
+#     renames a conflicting legacy "config" file, which is also in the backup)
+#   - if matugen is installed: adds one template + one [templates.*] block to
+#     ~/.config/matugen (config.toml is backed up first, nothing is removed)
 #   - never edits Hyprland or DMS configuration
 #
-# Usage: ./install.sh [--dry-run] [--no-restart]
+# Usage: ./install.sh [--dry-run] [--no-restart] [--no-matugen]
 
 set -euo pipefail
 
@@ -16,16 +18,20 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$REPO_DIR/waybar"
 DEST_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/waybar"
 HYPR_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr"
+MT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/matugen"
+MT_NAME="capputchin-waybar"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="$DEST_DIR.bak-$STAMP"
 
 DRY_RUN=0
 RESTART=1
+MATUGEN=1
 for arg in "$@"; do
   case "$arg" in
     --dry-run)    DRY_RUN=1 ;;
     --no-restart) RESTART=0 ;;
-    -h|--help)    sed -n '2,12p' "$0"; exit 0 ;;
+    --no-matugen) MATUGEN=0 ;;
+    -h|--help)    sed -n '2,14p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -45,7 +51,7 @@ if ! have waybar; then
   exit 1
 fi
 ok "waybar found: $(waybar --version 2>/dev/null | head -n1)"
-[[ -f "$SRC_DIR/config.jsonc" && -f "$SRC_DIR/style.css" ]] || { err "repo files missing in $SRC_DIR"; exit 1; }
+[[ -f "$SRC_DIR/config.jsonc" && -f "$SRC_DIR/style.css" && -f "$SRC_DIR/colors.css" ]] || { err "repo files missing in $SRC_DIR"; exit 1; }
 
 # ---------------------------------------------------------------- 2. hyprland
 step "Checking Hyprland"
@@ -98,6 +104,9 @@ else warn "playerctl not found - the mpris module needs it (pacman -S playerctl)
 if have bluetoothctl; then ok "bluetoothctl found"; else info "bluetoothctl not found - bluetooth module hides itself without a controller"; fi
 if have nmcli; then ok "nmcli found"; else info "nmcli not found - network module still works via kernel netlink"; fi
 if compgen -G "/sys/class/power_supply/BAT*" >/dev/null; then ok "battery detected"; else info "no battery - battery module hides itself"; fi
+if (( ! MATUGEN )); then info "matugen integration skipped (--no-matugen)"
+elif have matugen; then ok "matugen found: $(matugen --version 2>/dev/null | head -n1) - wallpaper colours will be wired up"
+else info "matugen not found - using the static Catppuccin Mocha palette"; MATUGEN=0; fi
 
 # ---------------------------------------------------------------- 4. build config
 step "Building config for this system"
@@ -163,9 +172,55 @@ install -m 644 "$TMP/config.jsonc"     "$DEST_DIR/config.jsonc"
 install -m 644 "$SRC_DIR/style.css"    "$DEST_DIR/style.css"
 ok "wrote $DEST_DIR/config.jsonc"
 ok "wrote $DEST_DIR/style.css"
+# Keep an existing capputchin colors.css (it may hold matugen wallpaper colours);
+# anything else named colors.css is replaced (it is in the backup).
+if [[ -f "$DEST_DIR/colors.css" ]] && grep -q 'capputchin-waybar colors' "$DEST_DIR/colors.css"; then
+  ok "kept existing $DEST_DIR/colors.css"
+else
+  install -m 644 "$SRC_DIR/colors.css" "$DEST_DIR/colors.css"
+  ok "wrote $DEST_DIR/colors.css (Catppuccin Mocha)"
+fi
 info "other files in $DEST_DIR (scripts, themes, …) were left as they are"
 
-# ---------------------------------------------------------------- 6. restart
+# ---------------------------------------------------------------- 6. matugen
+if (( MATUGEN )); then
+  step "Wiring up matugen"
+  MT_TEMPLATE="$MT_DIR/templates/$MT_NAME.css"
+  MT_CONFIG="$MT_DIR/config.toml"
+  mkdir -p "$MT_DIR/templates"
+  if [[ -f "$MT_TEMPLATE" ]] && ! cmp -s "$REPO_DIR/matugen/$MT_NAME.css" "$MT_TEMPLATE"; then
+    cp -a "$MT_TEMPLATE" "$MT_TEMPLATE.bak-$STAMP"
+    ok "backup created: $MT_TEMPLATE.bak-$STAMP"
+  fi
+  install -m 644 "$REPO_DIR/matugen/$MT_NAME.css" "$MT_TEMPLATE"
+  ok "wrote $MT_TEMPLATE"
+
+  if [[ -f "$MT_CONFIG" ]] && grep -qF "[templates.$MT_NAME]" "$MT_CONFIG"; then
+    ok "$MT_CONFIG already has [templates.$MT_NAME] (left as is)"
+  else
+    if [[ -f "$MT_CONFIG" ]]; then
+      cp -a "$MT_CONFIG" "$MT_CONFIG.bak-$STAMP"
+      ok "backup created: $MT_CONFIG.bak-$STAMP"
+    else
+      printf '[config]\n' > "$MT_CONFIG"
+    fi
+    cat >> "$MT_CONFIG" <<EOF
+
+# added by capputchin-waybar install.sh
+[templates.$MT_NAME]
+input_path = "$MT_TEMPLATE"
+output_path = "$DEST_DIR/colors.css"
+post_hook = "pkill -SIGUSR2 -x waybar || true"
+EOF
+    ok "added [templates.$MT_NAME] to $MT_CONFIG"
+  fi
+  if grep -rqiE 'dms|dankmaterialshell' "$HYPR_DIR" 2>/dev/null; then
+    warn "DMS detected: if DMS runs matugen for you, make sure it also runs your user matugen templates"
+  fi
+  info "apply wallpaper colours with:  matugen image /path/to/wallpaper.png --prefer saturation"
+fi
+
+# ---------------------------------------------------------------- 7. restart
 (( RESTART )) || { step "Done (restart skipped). Run: pkill -x waybar; waybar &"; exit 0; }
 if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
   warn "no WAYLAND_DISPLAY - not restarting. Waybar will pick up the config on next login."
